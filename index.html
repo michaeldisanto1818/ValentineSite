@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Be My Valentine</title>
+<style>
+    body {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: pink;
+        transition: background-color 0.5s;
+        overflow-x: hidden;
+        text-align: center;
+        margin: 0;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    body.fullscreen-active {
+        overflow: hidden;
+        height: 100vh;
+        margin: 0;
+    }
+
+    h1 {
+        margin: 20px 0 40px 0;
+        font-size: 2em;
+    }
+
+    img#valentine-img {
+        max-width: 300px;
+        max-height: 300px;
+        width: auto;
+        height: auto;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .button-container {
+        position: relative;
+        width: 100%;
+        height: 100px;
+    }
+
+    button {
+        padding: 1em 2em;
+        margin: 10px;
+        font-size: 1.2em;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    #yes {
+        background-color: red;
+        color: white;
+        transform-origin: center center;
+    }
+
+    #no {
+        background-color: white;
+        color: red;
+        border: 2px solid red;
+    }
+
+    #yes.fullscreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: red;
+        color: white;
+        font-size: 4rem;
+        border-radius: 0;
+        z-index: 1000;
+        transition: all 0.8s ease-out;
+    }
+
+    /* Confetti canvas - covers full screen behind fullscreen button */
+    #confetti-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        z-index: 1001;  /* ✅ Changed from 999 to 1001 */
+    }
+
+    .fade-out {
+        animation: fadeOut 0.5s ease-out forwards;
+    }
+
+    @keyframes fadeOut {
+        0% { opacity: 1; }
+        100% { opacity: 0; visibility: hidden; }
+    }
+
+    .hidden {
+        display: none !important;
+    }
+</style>
+</head>
+<body>
+
+<img id="valentine-img" src="valentine.png" alt="Will you be my Valentine meme">
+<h1 id="question">Will you be my Valentine?</h1>
+<div class="button-container">
+    <button id="yes">Yes</button>
+    <button id="no">No</button>
+</div>
+
+<!-- Confetti canvas -->
+<canvas id="confetti-canvas"></canvas>
+
+<script>
+    const yesBtn = document.getElementById('yes');
+    const noBtn = document.getElementById('no');
+    const question = document.getElementById('question');
+    const buttonContainer = document.querySelector('.button-container');
+    const canvas = document.getElementById('confetti-canvas');
+    const ctx = canvas.getContext('2d');
+
+    const messages = [
+        "Are you sure?",
+        "Are you positive?",
+        "Please?",
+        "Pretty please?",
+        ""
+    ];
+
+    let noClicks = 0;
+    let initialYesWidth = 0;
+    let initialYesCenter = 0;
+    let particles = [];
+    let animationId = null;
+
+    // Confetti setup
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function createConfetti() {
+        for (let i = 0; i < 100; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height - canvas.height,
+                size: Math.random() * 6 + 3,
+                speedX: Math.random() * 6 - 3,
+                speedY: Math.random() * 4 + 2,
+                rotation: Math.random() * 360,
+                rotationSpeed: Math.random() * 10 - 5,
+                color: `hsl(${Math.random() * 360}, 100%, 60%)`
+            });
+        }
+    }
+
+    function drawParticle(particle) {
+        ctx.save();
+        ctx.translate(particle.x, particle.y);
+        ctx.rotate(particle.rotation * Math.PI / 180);
+        ctx.fillStyle = particle.color;
+        ctx.fillRect(-particle.size, -particle.size / 4, particle.size * 2, particle.size / 2);
+        ctx.restore();
+    }
+
+    function animateConfetti() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach((particle, index) => {
+            drawParticle(particle);
+            particle.x += particle.speedX;
+            particle.y += particle.speedY;
+            particle.rotation += particle.rotationSpeed;
+            
+            if (particle.y > canvas.height) {
+                particles.splice(index, 1);
+            }
+        });
+
+        if (particles.length > 0) {
+            animationId = requestAnimationFrame(animateConfetti);
+        }
+    }
+
+    function triggerConfetti() {
+        createConfetti();
+        if (animationId) cancelAnimationFrame(animationId);
+        animateConfetti();
+    }
+
+    // Original button positioning
+    window.addEventListener('load', () => {
+        const containerRect = buttonContainer.getBoundingClientRect();
+        const yesRect = yesBtn.getBoundingClientRect();
+        const noRect = noBtn.getBoundingClientRect();
+        const gap = 20;
+        const containerCenter = containerRect.width / 2;
+
+        initialYesWidth = yesRect.width;
+        const totalWidth = initialYesWidth + gap + noRect.width;
+        const yesLeft = containerCenter - (totalWidth / 2);
+        const yesCenter = yesLeft + (initialYesWidth / 2);
+        const noLeft = yesLeft + initialYesWidth + gap;
+
+        yesBtn.style.position = 'absolute';
+        yesBtn.style.left = yesLeft + 'px';
+        yesBtn.style.top = '50%';
+        yesBtn.style.transform = 'translateY(-50%)';
+
+        noBtn.style.position = 'absolute';
+        noBtn.style.left = noLeft + 'px';
+        noBtn.style.top = '50%';
+        noBtn.style.transform = 'translateY(-50%)';
+        noBtn.style.transition = 'left 0.3s ease-out';
+
+        initialYesCenter = yesCenter;
+    });
+
+    // No button logic
+    noBtn.addEventListener('click', () => {
+        if (noClicks < 5) {
+            question.textContent = messages[noClicks];
+            noClicks++;
+
+            let scale = 1 + noClicks * 0.4;
+            yesBtn.style.transform = `translateY(-50%) scale(${scale})`;
+            yesBtn.style.transition = 'transform 0.3s ease-out';
+
+            const scaledWidth = initialYesWidth * scale;
+            const yesRightEdge = initialYesCenter + (scaledWidth / 2);
+            requestAnimationFrame(() => {
+                noBtn.style.left = (yesRightEdge + 20) + 'px';
+            });
+
+            if (noClicks === 5) {
+                noBtn.classList.add('hidden');
+                question.classList.add('fade-out');
+                setTimeout(() => {
+                    question.classList.add('hidden');
+                    document.body.classList.add('fullscreen-active');
+                    yesBtn.style.transform = '';
+                    yesBtn.style.left = '';
+                    yesBtn.style.top = '';
+                    yesBtn.style.position = 'fixed';
+                    yesBtn.classList.add('fullscreen');
+                    yesBtn.textContent = "YES";
+                }, 500);
+            }
+        }
+    });
+
+    // Yes button with confetti! 🎉
+    yesBtn.addEventListener('click', () => {
+        question.textContent = "YES";
+        noBtn.classList.add('hidden');
+        setTimeout(() => {
+            document.body.classList.add('fullscreen-active');
+            yesBtn.style.transform = '';
+            yesBtn.style.left = '';
+            yesBtn.style.top = '';
+            yesBtn.style.position = 'fixed';
+            yesBtn.classList.add('fullscreen');
+            
+            // 🎉 TRIGGER CONFETTI when text changes!
+            yesBtn.textContent = "YAY I KNEW YOU'D SAY YES!";
+            triggerConfetti();
+        }, 300);
+    });
+</script>
+</body>
+</html>
